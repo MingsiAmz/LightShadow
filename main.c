@@ -12,7 +12,7 @@
 #define WHITE 0xffffffff
 #define BLACK 0x00000000
 #define GRAY 0xFFF8DC
-#define RAYS_NUMBER 1024
+#define RAYS_NUMBER 102
 
 typedef struct{
         double x,y,radius;
@@ -48,8 +48,8 @@ void generatorRay(Circle circle, Ray rays[RAYS_NUMBER]) {
         }
 }
 
-void fillRays(SDL_Surface* surface, Ray rays[RAYS_NUMBER], uint32_t color, Circle circle) {
-        double radius_squared = pow(circle.radius, 2);
+void fillRays(SDL_Surface* surface, Ray rays[RAYS_NUMBER], uint32_t color, Circle targetCircle) {
+        double radius_squared = pow(targetCircle.radius, 2);
         for (int i = 0; i < RAYS_NUMBER; i++) {
                 Ray ray = rays[i];
                 int endScreen = 0;
@@ -66,7 +66,7 @@ void fillRays(SDL_Surface* surface, Ray rays[RAYS_NUMBER], uint32_t color, Circl
                         if (dx < 0 || dx > WIDTH) endScreen = 1;
                         if (dy < 0 || dy > HEIGHT) endScreen = 1;
 
-                        double distance_squared = pow(dx - circle.x, 2) + pow(dy - circle.y, 2);
+                        double distance_squared = pow(dx - targetCircle.x, 2) + pow(dy - targetCircle.y, 2);
                         if (distance_squared < radius_squared) {
                                 break;
                         }
@@ -85,7 +85,6 @@ int main(int argc, char *argv[])
         int run = 1;
         SDL_Event event;
         Ray rays[RAYS_NUMBER];
-        generatorRay(light, rays);
         while (run) {
                 while (SDL_PollEvent(&event)) {
                         if (event.type == SDL_QUIT){
@@ -99,10 +98,13 @@ int main(int argc, char *argv[])
                                 circle.y = event.motion.y;
                         }
                 }
+                generatorRay(circle, rays);
+                /* circle.x+=(1); */
+                /* circle.y+=; */
                 cleanRect(surface);
                 fillCircle(surface, circle, WHITE);
 
-                fillRays(surface, rays, GRAY, circle);
+                fillRays(surface, rays, GRAY, light);
                 fillCircle(surface, light, WHITE);
 
                 SDL_UpdateWindowSurface(window);
