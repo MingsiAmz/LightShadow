@@ -1,32 +1,25 @@
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_events.h>
-#include <SDL2/SDL_keycode.h>
-#include <SDL2/SDL_rect.h>
-#include <SDL2/SDL_surface.h>
-#include <SDL2/SDL_video.h>
-#include <math.h>
-#include <stdint.h>
 
 #define WIDTH 900
 #define HEIGHT 900
 #define WHITE 0xffffffff
 #define BLACK 0x00000000
 #define GRAY 0xFFF8DC
-#define RAYS_NUMBER 102
+#define RAYS_NUMBER 4096
 
 typedef struct{
         double x,y,radius;
 } Circle;
 
 typedef struct{
-        double sX,sY,angle;
+        double angle;
 } Ray;
 
 void fillCircle(SDL_Surface* surface, Circle circle, uint32_t color) {
-        double radius_squared = pow(circle.radius, 2);
+        double radius_squared = circle.radius * circle.radius;
         for (double x = circle.x - circle.radius; x <= circle.x + circle.radius; x++) {
                 for (double y = circle.y - circle.radius; y <= circle.y + circle.radius; y++) {
-                        double distance_squared = pow(x - circle.x, 2) + pow(y - circle.y, 2);
+                        double distance_squared = (x - circle.x) * (x - circle.x) + (y - circle.y) * (y - circle.y);
                         if (distance_squared < radius_squared) {
                                 SDL_Rect px = {x,y,1,1};
                                 SDL_FillRect(surface, &px, color);
@@ -41,35 +34,35 @@ void cleanRect(SDL_Surface* surface) {
 }
 
 void generatorRay(Circle circle, Ray rays[RAYS_NUMBER]) {
+        const double step = 2 * M_PI / RAYS_NUMBER;
         for (int i = 0; i < RAYS_NUMBER; i++) {
-                double angle = ((double)i / RAYS_NUMBER) * 2 * M_PI;
-                Ray ray = {circle.x, circle.y, angle};
-                rays[i] = ray;
+                rays[i].angle = i * step;
         }
 }
 
-void fillRays(SDL_Surface* surface, Ray rays[RAYS_NUMBER], uint32_t color, Circle targetCircle) {
-        double radius_squared = pow(targetCircle.radius, 2);
+int isHit(double x, double y, Circle circles) {
+        double dx = x - circles.x;
+        double dy = y - circles.y;
+        double r = circles.radius;
+        if (dx * dx + dy * dy < r * r) {
+                return 1;
+        }
+        return 0;    
+}
+
+void fillRays(SDL_Surface* surface, Ray rays[RAYS_NUMBER], uint32_t color, Circle lightCircle, Circle targetCircle) {
+        double r = lightCircle.radius * lightCircle.radius;
         for (int i = 0; i < RAYS_NUMBER; i++) {
-                Ray ray = rays[i];
-                int endScreen = 0;
-                int objectHit = 0;
-                int step = 1;
-                double dx = ray.sX;
-                double dy = ray.sY;
-                while (!endScreen && !objectHit) {
-                        dx += step * cos(ray.angle);
-                        dy += step * sin(ray.angle);
-                        SDL_Rect px = {dx,dy,1,1};
-                        SDL_FillRect(surface, &px, color);
-
-                        if (dx < 0 || dx > WIDTH) endScreen = 1;
-                        if (dy < 0 || dy > HEIGHT) endScreen = 1;
-
-                        double distance_squared = pow(dx - targetCircle.x, 2) + pow(dy - targetCircle.y, 2);
-                        if (distance_squared < radius_squared) {
-                                break;
-                        }
+                double ca = cos(rays[i].angle);
+                double sa = sin(rays[i].angle);
+                double x = lightCircle.x + ca * lightCircle.radius;
+                double y = lightCircle.y + sa * lightCircle.radius;
+                while (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
+                        if (isHit(x, y, targetCircle) == 1) break;
+                        SDL_Rect px = {x,y,1,1};
+                        SDL_FillRect(surface, &px, GRAY);
+                        x += ca;
+                        y += sa;
                 }
         }
 }
@@ -79,12 +72,14 @@ int main(int argc, char *argv[])
         SDL_Init(SDL_INIT_VIDEO);
         SDL_Window* window = SDL_CreateWindow("LightShadow", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_INIT_VIDEO);
         SDL_Surface* surface = SDL_GetWindowSurface(window);
+
+        Ray rays[RAYS_NUMBER];
         Circle circle = {210,210,100};
         Circle light = {800, 100, 200};
         
         int run = 1;
         SDL_Event event;
-        Ray rays[RAYS_NUMBER];
+
         while (run) {
                 while (SDL_PollEvent(&event)) {
                         if (event.type == SDL_QUIT){
@@ -98,13 +93,12 @@ int main(int argc, char *argv[])
                                 circle.y = event.motion.y;
                         }
                 }
+
                 generatorRay(circle, rays);
-                /* circle.x+=(1); */
-                /* circle.y+=; */
                 cleanRect(surface);
                 fillCircle(surface, circle, WHITE);
 
-                fillRays(surface, rays, GRAY, light);
+                fillRays(surface, rays, GRAY, light, circle);
                 fillCircle(surface, light, WHITE);
 
                 SDL_UpdateWindowSurface(window);
